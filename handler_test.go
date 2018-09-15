@@ -232,72 +232,115 @@ func TestHandlerSize(t *testing.T) {
 }
 
 func TestHandler(t *testing.T) {
-	req, err := http.NewRequest(http.MethodGet, "/jackwilsdon", nil)
+	candy := ppic.Palettes["Candy"]
+	default_ := ppic.DefaultPalette
 
-	if err != nil {
-		t.Errorf("http.NewRequest: %s", err)
-		return
+	cases := []struct {
+		path  string
+		size  int
+		image [8][8]color.Color
+	}{
+		{
+			path: "/jackwilsdon",
+			size: 512,
+			image: [8][8]color.Color{
+				{default_.Foreground, default_.Background, default_.Foreground, default_.Background, default_.Background, default_.Foreground, default_.Background, default_.Foreground},
+				{default_.Foreground, default_.Foreground, default_.Foreground, default_.Foreground, default_.Foreground, default_.Foreground, default_.Foreground, default_.Foreground},
+				{default_.Foreground, default_.Background, default_.Foreground, default_.Foreground, default_.Foreground, default_.Foreground, default_.Background, default_.Foreground},
+				{default_.Background, default_.Foreground, default_.Foreground, default_.Foreground, default_.Foreground, default_.Foreground, default_.Foreground, default_.Background},
+				{default_.Background, default_.Background, default_.Background, default_.Background, default_.Background, default_.Background, default_.Background, default_.Background},
+				{default_.Foreground, default_.Background, default_.Background, default_.Background, default_.Background, default_.Background, default_.Background, default_.Foreground},
+				{default_.Foreground, default_.Background, default_.Foreground, default_.Background, default_.Background, default_.Foreground, default_.Background, default_.Foreground},
+				{default_.Background, default_.Background, default_.Foreground, default_.Foreground, default_.Foreground, default_.Foreground, default_.Background, default_.Background},
+			},
+		},
+		{
+			path: "/jackwilsdon?palette=candy",
+			size: 512,
+			image: [8][8]color.Color{
+				{candy.Foreground, candy.Background, candy.Foreground, candy.Background, candy.Background, candy.Foreground, candy.Background, candy.Foreground},
+				{candy.Foreground, candy.Foreground, candy.Foreground, candy.Foreground, candy.Foreground, candy.Foreground, candy.Foreground, candy.Foreground},
+				{candy.Foreground, candy.Background, candy.Foreground, candy.Foreground, candy.Foreground, candy.Foreground, candy.Background, candy.Foreground},
+				{candy.Background, candy.Foreground, candy.Foreground, candy.Foreground, candy.Foreground, candy.Foreground, candy.Foreground, candy.Background},
+				{candy.Background, candy.Background, candy.Background, candy.Background, candy.Background, candy.Background, candy.Background, candy.Background},
+				{candy.Foreground, candy.Background, candy.Background, candy.Background, candy.Background, candy.Background, candy.Background, candy.Foreground},
+				{candy.Foreground, candy.Background, candy.Foreground, candy.Background, candy.Background, candy.Foreground, candy.Background, candy.Foreground},
+				{candy.Background, candy.Background, candy.Foreground, candy.Foreground, candy.Foreground, candy.Foreground, candy.Background, candy.Background},
+			},
+		},
+		{
+			path: "/jackwilsdon?palette=candy&inverse",
+			size: 512,
+			image: [8][8]color.Color{
+				{candy.Background, candy.Foreground, candy.Background, candy.Foreground, candy.Foreground, candy.Background, candy.Foreground, candy.Background},
+				{candy.Background, candy.Background, candy.Background, candy.Background, candy.Background, candy.Background, candy.Background, candy.Background},
+				{candy.Background, candy.Foreground, candy.Background, candy.Background, candy.Background, candy.Background, candy.Foreground, candy.Background},
+				{candy.Foreground, candy.Background, candy.Background, candy.Background, candy.Background, candy.Background, candy.Background, candy.Foreground},
+				{candy.Foreground, candy.Foreground, candy.Foreground, candy.Foreground, candy.Foreground, candy.Foreground, candy.Foreground, candy.Foreground},
+				{candy.Background, candy.Foreground, candy.Foreground, candy.Foreground, candy.Foreground, candy.Foreground, candy.Foreground, candy.Background},
+				{candy.Background, candy.Foreground, candy.Background, candy.Foreground, candy.Foreground, candy.Background, candy.Foreground, candy.Background},
+				{candy.Foreground, candy.Foreground, candy.Background, candy.Background, candy.Background, candy.Background, candy.Foreground, candy.Foreground},
+			},
+		},
 	}
 
-	rec := httptest.NewRecorder()
+	for i, c := range cases {
+		req, err := http.NewRequest(http.MethodGet, c.path, nil)
 
-	ppic.Handler(rec, req)
+		if err != nil {
+			t.Errorf("http.NewRequest: %s for case %d", err, i)
+			continue
+		}
 
-	res := rec.Result()
+		rec := httptest.NewRecorder()
 
-	// Try and decode the image in the response.
-	img, _, err := image.Decode(res.Body)
+		ppic.Handler(rec, req)
 
-	if err != nil {
-		t.Fatalf("error returned: %s", err)
-	}
+		res := rec.Result()
 
-	// Extract the image dimensions.
-	b := img.Bounds()
-	w := b.Dx()
-	h := b.Dy()
+		// Try and decode the image in the response.
+		img, _, err := image.Decode(res.Body)
 
-	if w != 512 {
-		t.Errorf("expected width to be 512 but got %d", w)
-	}
+		if err != nil {
+			t.Errorf("error returned: %s for case %d", err, i)
+			continue
+		}
 
-	if h != 512 {
-		t.Errorf("expected height to be 512 but got %d", h)
-	}
+		// Extract the image dimensions.
+		b := img.Bounds()
+		w := b.Dx()
+		h := b.Dy()
 
-	// We don't want to go any further if any of the dimensions are wrong.
-	if t.Failed() {
-		return
-	}
+		if w != c.size {
+			t.Errorf("expected width to be %d but got %d for case %d", c.size, w, i)
+		}
 
-	// A low resolution version of what we expect the image to look like.
-	data := [8][8]color.Color{
-		{color.Black, color.White, color.Black, color.White, color.White, color.Black, color.White, color.Black},
-		{color.Black, color.Black, color.Black, color.Black, color.Black, color.Black, color.Black, color.Black},
-		{color.Black, color.White, color.Black, color.Black, color.Black, color.Black, color.White, color.Black},
-		{color.White, color.Black, color.Black, color.Black, color.Black, color.Black, color.Black, color.White},
-		{color.White, color.White, color.White, color.White, color.White, color.White, color.White, color.White},
-		{color.Black, color.White, color.White, color.White, color.White, color.White, color.White, color.Black},
-		{color.Black, color.White, color.Black, color.White, color.White, color.Black, color.White, color.Black},
-		{color.White, color.White, color.Black, color.Black, color.Black, color.Black, color.White, color.White},
-	}
+		if h != c.size {
+			t.Errorf("expected height to be %d but got %d for case %d", c.size, h, i)
+		}
 
-	// Pixel size is image size / 8 (the size of the actual grid).
-	pSize := 512 / 8
+		// Don't carry on if the dimensions are wrong.
+		if w != c.size || h != c.size {
+			continue
+		}
 
-	// Compare the image data to the low resolution version.
-	for y, row := range data {
-		for x, val := range row {
-			// Get the color at the corresponding pixel.
-			c := img.At(x*pSize, y*pSize)
+		// Pixel size is image size / 8 (the size of the actual grid).
+		pSize := c.size / 8
 
-			// Get the expected and actual RGBA values for the pixel.
-			eR, eG, eB, eA := val.RGBA()
-			r, g, b, a := c.RGBA()
+		// Compare the image data to the low resolution version.
+		for y, row := range c.image {
+			for x, val := range row {
+				// Get the color at the corresponding pixel.
+				c := img.At(x*pSize, y*pSize)
 
-			// Ensure that everything matches up.
-			if eR != r || eG != g || eB != b || eA != a {
-				t.Errorf("expected (%d, %d) to be [%d, %d, %d, %d] but got [%d, %d, %d, %d]", x*pSize, y*pSize, eR, eG, eB, eA, r, g, b, a)
+				// Get the expected and actual RGBA values for the pixel.
+				eR, eG, eB, eA := val.RGBA()
+				r, g, b, a := c.RGBA()
+
+				// Ensure that everything matches up.
+				if eR != r || eG != g || eB != b || eA != a {
+					t.Errorf("expected (%d, %d) to be [%d, %d, %d, %d] but got [%d, %d, %d, %d] for case %d", x*pSize, y*pSize, eR, eG, eB, eA, r, g, b, a, i)
+				}
 			}
 		}
 	}

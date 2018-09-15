@@ -34,6 +34,29 @@ func getImageSize(q url.Values) (int, error) {
 	return s, nil
 }
 
+func getPalette(q url.Values) Palette {
+	pn := q.Get("palette")
+	pa := DefaultPalette
+
+	// If there is a palette name then look it up.
+	if len(pn) > 0 {
+		lpn := strings.ToLower(pn)
+
+		for n, p := range Palettes {
+			if lpn == strings.ToLower(n) {
+				pa = p
+			}
+		}
+	}
+
+	// If the request is to invert the palette then do so.
+	if q["inverse"] != nil {
+		return pa.Inverse()
+	}
+
+	return pa
+}
+
 // getImageEncoder returns an imageEncoder for the specified path.
 func getImageEncoder(p string) imageEncoder {
 	ext := path.Ext(p)
@@ -76,7 +99,10 @@ func Handler(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	size, err := getImageSize(req.URL.Query())
+	q := req.URL.Query()
+
+	// Get the image size from the request.
+	size, err := getImageSize(q)
 
 	if err != nil {
 		res.WriteHeader(http.StatusBadRequest)
@@ -84,9 +110,12 @@ func Handler(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Get the color palette from the request.
+	pal := getPalette(q)
+
 	// Get the path without extension.
 	txt := strings.TrimSuffix(req.URL.Path[1:], path.Ext(req.URL.Path))
-	img, err := GenerateImage(txt, size, true, false, DefaultPalette)
+	img, err := GenerateImage(txt, size, true, false, pal)
 
 	// Check if an invalid size was specified.
 	if err == ErrInvalidSize {
